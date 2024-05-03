@@ -63,6 +63,16 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/checkOut', async (req, res) => {
+      console.log(req.query?.email);
+      let query = {}
+      if (req.query.email) {
+        query = { email: req.query?.email }
+      }
+      const result = await checkOutCollection.find(query).toArray()
+      res.send(result)
+    })
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
