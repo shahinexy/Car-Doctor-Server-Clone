@@ -57,9 +57,7 @@ async function run() {
     // check out
     app.post('/checkOut', async (req, res) => {
       const checkout = req.body;
-      console.log(checkout);
       const result = await checkOutCollection.insertOne(checkout);
-      console.log(checkout, result);
       res.send(result)
     })
 
@@ -72,6 +70,12 @@ async function run() {
       const result = await checkOutCollection.find(query).toArray()
       res.send(result)
     })
+
+    app.delete('/checkOut/:id', async(req, res)=>{
+      const query = {_id : new ObjectId(req.params.id)}
+      const result = await checkOutCollection.deleteOne(query)
+      res.send(result)
+    } )
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
