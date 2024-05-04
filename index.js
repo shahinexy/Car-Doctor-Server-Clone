@@ -1,23 +1,32 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookiesParse = require('cookie-parser')
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
 
 // midlewear 
-app.use(cors())
-
-// const corsConfig = {
-//   origin: ["http://localhost:5173"],
+// app.use(cors({
+//   origin: ["http://localhost:5000"],
 //   credentials: true,
-//   methods: ['GET', 'POST', 'PUT', 'DELETE']
-// };
-// app.use(cors(corsConfig));
+// }))
 
 app.use(express.json())
 
+app.use(cookiesParse())
+
+const corsConfig = {
+  origin: ["http://localhost:5173"],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
+};
+app.use(cors(corsConfig));
+
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cookieParser = require('cookie-parser');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.76h69in.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -36,6 +45,22 @@ async function run() {
     const carCollection = client.db("carDoctor").collection('services');
     const checkOutCollection = client.db("carDoctor").collection('checkOut');
 
+    // auth related
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' })
+
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: false,
+          // sameSite: 'none'
+        })
+        .send({ success: true })
+    })
+
+
+    // service related
     app.get('/services', async (req, res) => {
       const result = await carCollection.find().toArray();
       res.send(result)
@@ -54,7 +79,7 @@ async function run() {
     })
 
 
-    // check out
+    // check out ======
     app.post('/checkOut', async (req, res) => {
       const checkout = req.body;
       const result = await checkOutCollection.insertOne(checkout);
@@ -62,7 +87,7 @@ async function run() {
     })
 
     app.get('/checkOut', async (req, res) => {
-      console.log(req.query?.email);
+      console.log('token====>', req.cookies.token);
       let query = {}
       if (req.query.email) {
         query = { email: req.query?.email }
@@ -71,23 +96,23 @@ async function run() {
       res.send(result)
     })
 
-    app.patch('/checkOut/:id', async (req, res)=>{
+    app.patch('/checkOut/:id', async (req, res) => {
       const data = req.body;
-      const filter = {_id : new ObjectId(req.params.id)}
+      const filter = { _id: new ObjectId(req.params.id) }
       const updateData = {
-        $set : {
-            status : data.status
+        $set: {
+          status: data.status
         }
       }
       const result = await checkOutCollection.updateOne(filter, updateData)
       res.send(result)
     })
 
-    app.delete('/checkOut/:id', async(req, res)=>{
-      const query = {_id : new ObjectId(req.params.id)}
+    app.delete('/checkOut/:id', async (req, res) => {
+      const query = { _id: new ObjectId(req.params.id) }
       const result = await checkOutCollection.deleteOne(query)
       res.send(result)
-    } )
+    })
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
