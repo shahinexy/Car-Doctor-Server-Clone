@@ -71,6 +71,18 @@ async function run() {
       res.send(result)
     })
 
+    app.patch('/checkOut/:id', async (req, res)=>{
+      const data = req.body;
+      const filter = {_id : new ObjectId(req.params.id)}
+      const updateData = {
+        $set : {
+            status : data.status
+        }
+      }
+      const result = await checkOutCollection.updateOne(filter, updateData)
+      res.send(result)
+    })
+
     app.delete('/checkOut/:id', async(req, res)=>{
       const query = {_id : new ObjectId(req.params.id)}
       const result = await checkOutCollection.deleteOne(query)
