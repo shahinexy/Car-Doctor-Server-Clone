@@ -7,6 +7,7 @@ const app = express()
 const port = process.env.PORT || 5000
 
 // midlewear 
+
 // app.use(cors({
 //   origin: ["http://localhost:5000"],
 //   credentials: true,
@@ -38,6 +39,29 @@ const client = new MongoClient(uri, {
   }
 });
 
+// ===== midlewear ===
+const logger = async (req, res, next) =>{
+  console.log('call:', req.host, req.originalUrl);
+  next()
+}
+
+const verifyToken =  async (req, res, next) =>{
+  const token = req.cookies.token;
+  console.log("midlewear Token ==> ", token);
+  if(!token){
+    return res.status(401).send({message: "unauthorized"})
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) =>{
+    if(err){
+      console.log(err);
+      return res.status(401).send({message: "unauthorized"})
+    }
+    console.log('decoded token', decoded);
+    req.user = decoded;
+    next()
+  })
+}
+
 async function run() {
   try {
     await client.connect();
@@ -46,7 +70,7 @@ async function run() {
     const checkOutCollection = client.db("carDoctor").collection('checkOut');
 
     // auth related
-    app.post('/jwt', async (req, res) => {
+    app.post('/jwt', logger, async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' })
 
@@ -86,8 +110,14 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/checkOut', async (req, res) => {
-      console.log('token====>', req.cookies.token);
+    app.get('/checkOut', logger, verifyToken, async (req, res) => {
+      // console.log('token====>', req.cookies.token);
+      console.log("user valid token",req.user);
+
+      if(req.query.email !== req.user.email){
+        return res.status(403).send({message: "forbidden"})
+      }
+
       let query = {}
       if (req.query.email) {
         query = { email: req.query?.email }
