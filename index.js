@@ -1,12 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
-const cookiesParse = require('cookie-parser')
+// const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken')
+// const cookieParse = require('cookie-parser')
+const cookieparser = require('cookie-parser')
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
 
 // midlewear 
+// app.use(cors())
 
 // app.use(cors({
 //   origin: ["http://localhost:5000"],
@@ -15,14 +18,22 @@ const port = process.env.PORT || 5000
 
 app.use(express.json())
 
-app.use(cookiesParse())
+// app.use(cookiesParse())
+app.use(cookieparser())
 
-const corsConfig = {
-  origin: ["http://localhost:5173"],
+// const corsConfig = {
+//   origin: ["http://localhost:5173"],
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE']
+// };
+// app.use(cors(corsConfig));
+
+const corConfig = {
+  origin: ['http://localhost:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE']
-};
-app.use(cors(corsConfig));
+}
+app.use(cors(corConfig))
 
 
 
@@ -39,28 +50,27 @@ const client = new MongoClient(uri, {
   }
 });
 
-// ===== midlewear ===
-const logger = async (req, res, next) =>{
-  console.log('call:', req.host, req.originalUrl);
+// ===== Won midlewear =====
+const logger = (req, res, next) => {
+  console.log('log: info', req.method, req.url);
   next()
 }
 
-const verifyToken =  async (req, res, next) =>{
-  const token = req.cookies.token;
-  console.log("midlewear Token ==> ", token);
-  if(!token){
-    return res.status(401).send({message: "unauthorized"})
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  console.log('token in midlewear', token);
+  if (!token) {
+    res.status(401).send({ message: 'unauthorized access' })
   }
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) =>{
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded)=>{
     if(err){
-      console.log(err);
-      return res.status(401).send({message: "unauthorized"})
+      res.status(401).send({ message: 'unauthorized access' })
     }
-    console.log('decoded token', decoded);
-    req.user = decoded;
+    req.user = decoded
     next()
   })
 }
+
 
 async function run() {
   try {
@@ -69,17 +79,25 @@ async function run() {
     const carCollection = client.db("carDoctor").collection('services');
     const checkOutCollection = client.db("carDoctor").collection('checkOut');
 
-    // auth related
+    // ========== auth related =========
     app.post('/jwt', logger, async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' })
-
+      console.log(user);
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
       res
         .cookie('token', token, {
           httpOnly: true,
-          secure: false,
-          // sameSite: 'none'
+          secure: true,
+          sameSite: 'none'
         })
+        .send({ success: true })
+    })
+
+    app.post('/logout', async (req, res) => {
+      const user = req.body;
+      console.log('logout user', user);
+      res
+        .clearCookie('token', { maxAge: 0 })
         .send({ success: true })
     })
 
@@ -92,8 +110,8 @@ async function run() {
 
     app.get('/services/:id', async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
 
+      const query = { _id: new ObjectId(id) };
       const options = {
         projection: { title: 1, img: 1, price: 1 }
       };
@@ -112,10 +130,11 @@ async function run() {
 
     app.get('/checkOut', logger, verifyToken, async (req, res) => {
       // console.log('token====>', req.cookies.token);
-      console.log("user valid token",req.user);
+      console.log('cookie', req.query.email);
+      console.log("token woner info", req.user);
 
-      if(req.query.email !== req.user.email){
-        return res.status(403).send({message: "forbidden"})
+      if(req.user.email !== req.query.email){
+        return res.status(403).send({message: 'forbiden access'})
       }
 
       let query = {}
