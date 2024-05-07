@@ -29,7 +29,7 @@ app.use(cookieparser())
 // app.use(cors(corsConfig));
 
 const corConfig = {
-  origin: ['http://localhost:5173'],
+  origin: ['http://localhost:5173', 'https://car-doctor-21ef9.web.app', 'https://car-doctor-21ef9.firebaseapp.com'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }
@@ -62,8 +62,8 @@ const verifyToken = (req, res, next) => {
   if (!token) {
     res.status(401).send({ message: 'unauthorized access' })
   }
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded)=>{
-    if(err){
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
       res.status(401).send({ message: 'unauthorized access' })
     }
     req.user = decoded
@@ -72,9 +72,16 @@ const verifyToken = (req, res, next) => {
 }
 
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production' ? true : false,
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+}
+
+
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const carCollection = client.db("carDoctor").collection('services');
     const checkOutCollection = client.db("carDoctor").collection('checkOut');
@@ -85,11 +92,7 @@ async function run() {
       console.log(user);
       const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
       res
-        .cookie('token', token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'none'
-        })
+        .cookie('token', token, cookieOptions)
         .send({ success: true })
     })
 
@@ -97,7 +100,7 @@ async function run() {
       const user = req.body;
       console.log('logout user', user);
       res
-        .clearCookie('token', { maxAge: 0 })
+        .clearCookie('token', { ...cookieOptions, maxAge: 0 })
         .send({ success: true })
     })
 
@@ -130,11 +133,11 @@ async function run() {
 
     app.get('/checkOut', logger, verifyToken, async (req, res) => {
       // console.log('token====>', req.cookies.token);
-      console.log('cookie', req.query.email);
+      // console.log('cookie', req.query.email);
       console.log("token woner info", req.user);
 
-      if(req.user.email !== req.query.email){
-        return res.status(403).send({message: 'forbiden access'})
+      if ( req.query.email !== req.user?.email) {
+        return res.status(403).send({ message: 'forbiden access' })
       }
 
       let query = {}
@@ -163,7 +166,7 @@ async function run() {
       res.send(result)
     })
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
